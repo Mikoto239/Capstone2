@@ -3,20 +3,17 @@ const MinorAlertModel = require('../models/minoralerts.js');  // Avoid naming co
 const Pinlocation = require('../models/theftdetails.js');
 const User = require('../models/user.js');
 const jwt = require('jsonwebtoken');
+require('dotenv').config();
 const SECRET_KEY = process.env.SECRET_KEY;
-
-
-
 
 exports.hardwareregistration = async (req, res, next) => {
   const { uniqueId } = req.body;
-  
+
   try {
     const existingHardware = await Hardware.findOne({ uniqueId });
 
     if (existingHardware) {
-
-      const token = jwt.sign({ uniqueId }, SECRET_KEY);
+      const token = jwt.sign({ id: existingHardware._id }, SECRET_KEY);
       return res.status(200).json({
         message: 'Hardware already registered',
         token: token // Send the generated token back to the hardware
@@ -24,7 +21,7 @@ exports.hardwareregistration = async (req, res, next) => {
     } else {
       const newHardware = new Hardware({ uniqueId });
       await newHardware.save();
-      const token = jwt.sign({ uniqueId }, SECRET_KEY);
+      const token = jwt.sign({ id: newHardware._id }, SECRET_KEY); // Use newHardware._id
       return res.status(200).json({
         message: 'Hardware registered successfully',
         token: token
@@ -35,6 +32,9 @@ exports.hardwareregistration = async (req, res, next) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+
+
 exports.getcurrentpinlocation = async (req, res, next) => {
   const { uniqueId } = req.body;
   try {
