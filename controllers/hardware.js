@@ -1,6 +1,7 @@
 const Hardware = require('../models/hardware.js');
 const MinorAlertModel = require('../models/minoralerts.js');  // Avoid naming conflict by renaming the import
-const Pinlocation = require('../models/theftdetails.js');
+const Pinlocation = require('../models/pinlocation.js');
+const Theft = require('../models/theftdetails.js');
 const User = require('../models/user.js');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
