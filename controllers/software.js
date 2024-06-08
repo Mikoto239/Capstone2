@@ -1,6 +1,7 @@
 const Hardware = require('../models/hardware');
 const MinorAlert = require('../models/minoralerts.js');
-const Pinlocation = require('../models/theftdetails.js');
+const Pinlocation = require('../models/pinlocation.js');
+const TheftDetails = require('../models/theftdetails.js');
 const User = require('../models/user.js');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
