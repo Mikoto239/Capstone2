@@ -7,6 +7,8 @@ const HardwareRoute = require('./routes/hardware.js');
 const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
+const http = require('http'); // Import the http module
+const socketIO = require('socket.io');
 require('dotenv').config();
 
 // MongoDB connection
@@ -28,6 +30,27 @@ app.use('/api', HardwareRoute);
 
 app.use('/', homeRouter);
 
-app.listen(PORT, () => {
+// Create HTTP server
+const server = http.createServer(app);
+const io = socketIO(server); // Attach socket.io to the HTTP server
+
+// Define socket.io event handlers
+io.on('connection', (socket) => {
+  console.log('A client connected');
+
+  // Example: Listen for a custom event
+  socket.on('custom_event', (data) => {
+    console.log('Custom event received:', data);
+    // Example: Emit a response
+    io.emit('response_event', 'Response from server');
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    console.log('A client disconnected');
+  });
+});
+
+server.listen(PORT, () => {
   console.log(`Node.js server listening on port ${PORT}`);
 });
