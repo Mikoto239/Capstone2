@@ -1,17 +1,20 @@
 const Hardware = require('../models/hardware');
-
+const jwt = require('jsonwebtoken');
 exports.isHardwareOn = async (req, res, next) => {
-  const { uniqueId } = req.body;
+  const { token } = req.body;
 
   try {
-    const hardware = await Hardware.findOne({ uniqueId });
+    const decoded = jwt.verify(token, SECRET_KEY);
 
-    if (!hardware) {
-      return res.status(404).json({ message: "Hardware not found" });
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
     }
 
-    if (!hardware.status) {
-      return res.status(503).json({ message: "Service Unavailable: The hardware is currently turned off and cannot process the request." });
+    const decodedId = decoded.id;
+    const hardware = await Hardware.findOne({ _id: decodedId });
+
+    if (!hardware) {
+      return res.status(404).json({ message: 'Hardware not found!' });
     }
 
     next();
