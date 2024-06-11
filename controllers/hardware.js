@@ -35,37 +35,70 @@ exports.hardwareregistration = async (req, res, next) => {
 };
 
 
-
 exports.getcurrentpinlocation = async (req, res, next) => {
-  const { uniqueId } = req.body;
+  const { token } = req.body;
+
   try {
-      const pinLocation = await Pinlocation.findOne({ uniqueId, statusPin: true }).sort({ pinAt: -1 });
+    const decoded = jwt.verify(token, SECRET_KEY);
 
-      if (!pinLocation) {
-          console.log("No pin location found for uniqueId:", uniqueId);
-          return res.status(400).json({ message: "Invalid uniqueId" });
-      } 
-      
-      const latitude = pinLocation.currentlatitude;
-      const longitude = pinLocation.currentlongitude;
-      const time = pinLocation.pinAt;
+    if (!decoded || !decoded.id) { // Check if 'decoded' exists and contains 'id'
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
 
-      return res.status(200).json({ latitude, longitude, time });
+    const decodedId = decoded.id; 
+
+    const hardware = await Hardware.findById(decodedId);
+    if(!hardware){
+      res.status(404).json({message:"Not found!"});
+    }
+
+    const pinLocation = await Pinlocation.findOne({ uniqueId:hardware.uniqueId, statusPin: true }).sort({ pinAt: -1 });  
+    if (!pinLocation) {
+      return res.status(400).json({ message:""});
+    }
+
+    const { currentlatitude: latitude, currentlongitude: longitude, pinAt: time } = pinLocation;
+
+    return res.status(200).json({ latitude, longitude, time });
   } catch (error) {
-      console.error("Error fetching pin location:", error);
-      return res.status(500).json({ message: 'Internal server error' });
+    console.error("Error fetching pin location:", error);
+
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token expired' });
+    }
+
+    return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
 
 
+
 exports.send_alert = async (req, res, next) => {
- const { description, latitude, longitude, uniqueId, level } = req.body;
+ const { description, latitude, longitude, uniqueId, level,token } = req.body;
   try {
+
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) { 
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id; 
+    const hardware = await Hardware.find({_id:decodedId,uniqueId});
+    if(!hardware){
+      res.status(404).json({message:"Not found!"});
+    }
+
+
     const response = await axios.get(`https://geocode.maps.co/reverse?lat=${latitude}&lon=${longitude}&api_key=${process.env.OPENCAGE_API_KEY}`);
     const responseData = response.data;
-
-    // Check if the response contains address information
+    
+  
     if (!responseData || !responseData.display_name || !responseData.address) {
       return res.status(404).json({ message: 'No address information found for the provided coordinates' });
     }
@@ -87,7 +120,7 @@ exports.send_alert = async (req, res, next) => {
     };
 
     const minoralert = new MinorAlertModel({
-      desccription,
+      description,
       latitude,
       longitude,
       uniqueId,
@@ -110,12 +143,33 @@ exports.send_alert = async (req, res, next) => {
 
 
 exports.pinlocation = async (req, res, next) => {
- const { uniqueId, pinlocation, currentlatitude, currentlongitude, statusPin } = req.body;
+  const {pinlocation, currentlatitude, currentlongitude, statusPin, token } = req.body;
+
+  if (!token) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+
   try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id;
+    const hardware = await Hardware.findOne({ _id: decodedId});
+
+    if (!hardware) {
+      return res.status(404).json({ message: 'Hardware not found!' });
+    }
+
+    if (!currentlatitude || !currentlongitude) {
+      return res.status(400).json({ message: 'Invalid location coordinates' });
+    }
+
     const response = await axios.get(`https://geocode.maps.co/reverse?lat=${currentlatitude}&lon=${currentlongitude}&api_key=${process.env.OPENCAGE_API_KEY}`);
     const responseData = response.data;
 
-    // Check if the response contains address information
     if (!responseData || !responseData.display_name || !responseData.address) {
       return res.status(404).json({ message: 'No address information found for the provided coordinates' });
     }
@@ -125,7 +179,6 @@ exports.pinlocation = async (req, res, next) => {
       address: { road, quarter, city, state, region, country_code }
     } = responseData;
 
-    // Create the address object
     const address = {
       formatted: display_name,
       road,
@@ -136,34 +189,24 @@ exports.pinlocation = async (req, res, next) => {
       country_code
     };
 
-    const hardware = await Hardware.findOneAndUpdate(
-      { uniqueId },
+    const updatedHardware = await Hardware.findOneAndUpdate(
+      { _id: decodedId },
       { pinlocation },
       { new: true }
     );
 
-    if (!hardware) {
-      // If hardware is not found, log the error and return a 404 error
-      console.log('Hardware not found for uniqueId:', uniqueId);
+    if (!updatedHardware) {
       return res.status(404).json({ message: "Hardware not found" });
     }
 
-    // Validate the current latitude and longitude
-    if (currentlatitude == 0 || currentlongitude == 0) {
-      // If location is invalid (assumes 0,0 is invalid), return an error
-      return res.status(400).json({ message: "Invalid location" }); // Using 400 for bad request
-    }
-
-    // Since hardware exists and location is valid, save the new pin location
     const pinLocationSave = new Pinlocation({
-      uniqueId,
+      uniqueId:hardware.uniqueId,
       currentlatitude,
       currentlongitude,
-      address:address. formatted,
+      address: address.formatted,
       statusPin
     });
 
-    
     await pinLocationSave.save();
     return res.status(200).json({
       message: "Location updated successfully",
@@ -173,8 +216,10 @@ exports.pinlocation = async (req, res, next) => {
     });
 
   } catch (error) {
-    // If there's an error during processing, log and return a 500 error
     console.error('Error updating hardware:', error);
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
     return res.status(500).json({
       message: 'Internal server error',
       error: error.message
@@ -183,15 +228,20 @@ exports.pinlocation = async (req, res, next) => {
 };
 
 exports.hardwarestatus = async (req, res, next) => {
-  const { uniqueId } = req.query;
+  const { token } = req.query;
 
   try {
-    const hardware = await Hardware.findOne({ uniqueId });
+   const decoded = jwt.verify(token, SECRET_KEY);
 
-    if (!hardware) {
-      return res.status(404).json({ message: 'Hardware not found' });
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
     }
 
+    const decodedId = decoded.id;
+    const hardware = await Hardware.findOne({ _id: decodedId });
+    if (!hardware) {
+      return res.status(404).json({ message: 'Hardware not found!' });
+    }
     const pinStatus = hardware.pinlocation;
 
     return res.status(200).json({ status: pinStatus });
@@ -202,15 +252,26 @@ exports.hardwarestatus = async (req, res, next) => {
 };
 
 exports.theftdetails = async (req, res, next) => {
-  const { uniqueId, currentlatitude, currentlongitude, description, level } = req.body;
+  const { token, currentlatitude, currentlongitude, description, level } = req.body;
 
   try {
-    // Call the OpenCage Geocoding API to get address information
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id;
+    const hardware = await Hardware.findOne({ _id: decodedId });
+
+    if (!hardware) {
+      return res.status(404).json({ message: 'Hardware not found!' });
+    }
+
     const response = await axios.get(`https://geocode.maps.co/reverse?lat=${currentlatitude}&lon=${currentlongitude}&api_key=${process.env.OPENCAGE_API_KEY}`);
 
     const responseData = response.data;
 
-    // Check if the response contains address information
     if (!responseData || !responseData.display_name || !responseData.address) {
       return res.status(404).json({ message: 'No address information found for the provided coordinates' });
     }
@@ -220,7 +281,6 @@ exports.theftdetails = async (req, res, next) => {
       address: { road, quarter, city, state, region, country_code }
     } = responseData;
 
-    // Create the address object
     const address = {
       formatted: display_name,
       road,
@@ -232,18 +292,19 @@ exports.theftdetails = async (req, res, next) => {
     };
 
     const theftDetail = new Theft({
-      uniqueId,
+      uniqueId: hardware.uniqueId,
       currentlatitude,
       currentlongitude,
       description,
       level,
-      address: address.formatted // Use formatted address as you did before
+      address: address.formatted
     });
+
     await theftDetail.save();
 
     return res.status(200).json({ message: 'Theft details saved successfully' });
   } catch (error) {
-    console.error(error);
+    console.error('Error saving theft details:', error);
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
@@ -251,10 +312,22 @@ exports.theftdetails = async (req, res, next) => {
 
 
 exports.getusernumber = async (req, res, next) => {
-  const { uniqueId } = req.body;
+  const { token } = req.body;
     
   try {
-    const user = await User.findOne({ uniqueId });
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id;
+    const hardware = await Hardware.findOne({ _id: decodedId });
+
+    if (!hardware) {
+      return res.status(404).json({ message: 'Hardware not found!' });
+    }
+    const user = await User.findOne({ uniqueId:hardware.uniqueId});
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     } 
