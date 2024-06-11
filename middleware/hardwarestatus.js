@@ -1,5 +1,7 @@
 const Hardware = require('../models/hardware');
 const jwt = require('jsonwebtoken');
+const SECRET_KEY = process.env.SECRET_KEY;
+
 exports.isHardwareOn = async (req, res, next) => {
   const { token } = req.body;
 
@@ -13,8 +15,8 @@ exports.isHardwareOn = async (req, res, next) => {
     const decodedId = decoded.id;
     const hardware = await Hardware.findOne({ _id: decodedId });
 
-    if (!hardware) {
-      return res.status(404).json({ message: 'Hardware not found!' });
+    if (!hardware.status) {
+      return res.status(404).json({ message: 'Hardware is Off!' });
     }
 
     next();
@@ -22,5 +24,3 @@ exports.isHardwareOn = async (req, res, next) => {
     res.status(500).json({ message: "Internal Server Error!" });
   }
 };
-
-
