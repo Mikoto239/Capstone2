@@ -4,8 +4,11 @@ const Pinlocation = require('../models/pinlocation.js');
 const Theft = require('../models/theftdetails.js');
 const User = require('../models/user.js');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
 const SECRET_KEY = process.env.SECRET_KEY;
+require('dotenv').config();
+const axios = require('axios');
+
+
 
 exports.hardwareregistration = async (req, res, next) => {
   const { uniqueId } = req.body;
@@ -54,7 +57,7 @@ exports.getcurrentpinlocation = async (req, res, next) => {
 
     const pinLocation = await Pinlocation.findOne({ uniqueId:hardware.uniqueId, statusPin: true }).sort({ pinAt: -1 });  
     if (!pinLocation) {
-      return res.status(400).json({ message:""});
+      return res.status(400).json({ message:"No pinned location!"});
     }
 
     const { currentlatitude: latitude, currentlongitude: longitude, pinAt: time } = pinLocation;
@@ -79,7 +82,7 @@ exports.getcurrentpinlocation = async (req, res, next) => {
 
 
 exports.send_alert = async (req, res, next) => {
- const { description, latitude, longitude, uniqueId, level,token } = req.body;
+ const { description, latitude, longitude,level,token } = req.body;
   try {
 
     const decoded = jwt.verify(token, SECRET_KEY);
@@ -89,7 +92,7 @@ exports.send_alert = async (req, res, next) => {
     }
 
     const decodedId = decoded.id; 
-    const hardware = await Hardware.find({_id:decodedId,uniqueId});
+    const hardware = await Hardware.find({_id:decodedId});
     if(!hardware){
       res.status(404).json({message:"Not found!"});
     }
@@ -123,7 +126,7 @@ exports.send_alert = async (req, res, next) => {
       description,
       latitude,
       longitude,
-      uniqueId,
+      uniqueId:hardware.uniqueId,
       level,
       address: address.formatted
     });
@@ -142,8 +145,12 @@ exports.send_alert = async (req, res, next) => {
 };
 
 
+
+
+
+
 exports.pinlocation = async (req, res, next) => {
-  const {pinlocation, currentlatitude, currentlongitude, statusPin, token } = req.body;
+  const { pinlocation, currentlatitude, currentlongitude, statusPin, token } = req.body;
 
   if (!token) {
     return res.status(401).json({ message: 'No token provided' });
@@ -157,7 +164,7 @@ exports.pinlocation = async (req, res, next) => {
     }
 
     const decodedId = decoded.id;
-    const hardware = await Hardware.findOne({ _id: decodedId});
+    const hardware = await Hardware.findOne({ _id: decodedId });
 
     if (!hardware) {
       return res.status(404).json({ message: 'Hardware not found!' });
@@ -189,6 +196,16 @@ exports.pinlocation = async (req, res, next) => {
       country_code
     };
 
+    // Find the pin location with statusPin: true and uniqueId
+    const existingPinLocation = await Pinlocation.findOne({ uniqueId: hardware.uniqueId, statusPin: true }).sort({ pinAt: -1 });
+
+    if (existingPinLocation) {
+      // Update the statusPin to false
+      existingPinLocation.statusPin = false;
+      await existingPinLocation.save();
+    }
+
+    // Update the hardware with the new pin location
     const updatedHardware = await Hardware.findOneAndUpdate(
       { _id: decodedId },
       { pinlocation },
@@ -196,11 +213,12 @@ exports.pinlocation = async (req, res, next) => {
     );
 
     if (!updatedHardware) {
-      return res.status(404).json({ message: "Hardware not found" });
+      return res.status(404).json({ message: 'Hardware not found' });
     }
 
+    // Create a new pin location document with the updated status
     const pinLocationSave = new Pinlocation({
-      uniqueId:hardware.uniqueId,
+      uniqueId: hardware.uniqueId,
       currentlatitude,
       currentlongitude,
       address: address.formatted,
@@ -208,11 +226,12 @@ exports.pinlocation = async (req, res, next) => {
     });
 
     await pinLocationSave.save();
+
     return res.status(200).json({
-      message: "Location updated successfully",
+      message: 'Location updated successfully',
       latitude: currentlatitude,
       longitude: currentlongitude,
-      address
+      address: address.formatted
     });
 
   } catch (error) {
@@ -227,8 +246,9 @@ exports.pinlocation = async (req, res, next) => {
   }
 };
 
-exports.hardwarestatus = async (req, res, next) => {
-  const { token } = req.query;
+
+exports.pinstatus = async (req, res, next) => {
+  const { token } = req.body;
 
   try {
    const decoded = jwt.verify(token, SECRET_KEY);
