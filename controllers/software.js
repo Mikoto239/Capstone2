@@ -1,27 +1,29 @@
 const Hardware = require('../models/hardware');
+require('dotenv').config();
 const MinorAlert = require('../models/minoralerts.js');
 const Pinlocation = require('../models/pinlocation.js');
-const TheftDetails = require('../models/theftdetails.js');
+const Theft = require('../models/theftdetails.js');
 const User = require('../models/user.js');
-const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
-const jwt_key = process.env.SECRET_KEY;
+const SECRET_KEY = process.env.SECRET_KEY;
+const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_API_KEY);
 
 
-
+//register the user 
 exports.userregistration = async (req, res, next) => {
-  const { name, uniqueId, email, cellphonenumber, token } = req.body;
+  const { name, uniqueId, email, cellphonenumber } = req.body;
 
   try {
-    const ticket = await client.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_API_KEY, 
-    });
-    const payload = ticket.getPayload();
-    const emailFromGoogle = payload.email;
-     
-    const findUser = await User.findOne({ uniqueId, email: emailFromGoogle });
+    // Optional: verify Google token
+    // const ticket = await client.verifyIdToken({
+    //   idToken: token,
+    //   audience: process.env.GOOGLE_API_KEY, 
+    // });
+    // const payload = ticket.getPayload();
+    // const emailFromGoogle = payload.email;
+
+    const findUser = await User.findOne({ uniqueId, email });
     if (findUser) {
       return res.status(400).json({ message: "User is already registered!" });
     }
@@ -34,27 +36,43 @@ exports.userregistration = async (req, res, next) => {
     const newUser = new User({ name, uniqueId, email, cellphonenumber });
     await newUser.save();
 
-    const tokenToSend = jwt.sign({ id: newUser._id, email: newUser.email }, jwt_key); // No expiresIn option
-
+    const tokenToSend = jwt.sign({ id: newUser._id }, SECRET_KEY);
+  
     return res.status(200).json({
       success: true,
       message: 'User registered successfully',
       token: tokenToSend
     });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error('Error during user registration:', error); // Log the error details
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
-exports.getlocation = async (req, res, next)  => {
-  const { uniqueId } = req.query;
+//do no
+exports.getlocation = async (req, res, next) => {
 
-  if (!uniqueId) {
-    return res.status(400).json({ message: 'uniqueId is required' });
+  const { token } = req.body;  // Ensure you are using req.query to get the token
+
+  if (!token) {
+    return res.status(400).json({ message: 'No token provided' });
   }
 
   try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id;
+
+    const userId = await User.findById(decodedId);
+    if (!userId) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    const uniqueId = userId.uniqueId;
     const results = await MinorAlert.find({ uniqueId });
 
     if (results.length === 0) {
@@ -63,50 +81,80 @@ exports.getlocation = async (req, res, next)  => {
 
     return res.status(200).json(results);
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error('Error during getlocation:', error);
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
 
 
-
-
-
-
-exports.turnoffhardware = async (req, res, next)  => {
-  const { uniqueId ,statusPin} = req.body;
+//turn off the hardware to stop sending data
+exports.turnoffhardware = async (req, res, next) => {
+  const { token } = req.body;
 
   try {
-    // Find all pin locations with the specified uniqueId and statusPin as true
-    const pinLocations = await Pinlocation.find({ uniqueId, statusPin: true });
+    const decoded = jwt.verify(token, SECRET_KEY);
 
-    if (pinLocations.length === 0) {
-      return res.status(404).json({ message: 'No pin locations found with specified uniqueId and statusPin as true' });
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
     }
 
-    // Update statusPin to false for all found pin locations
-    await Pinlocation.updateMany({ uniqueId, statusPin: true }, { statusPin: false });
+    const decodedId = decoded.id;
+
+    const user = await User.findById(decodedId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    const uniqueId = user.uniqueId;
+    const result = await Pinlocation.updateMany(
+      { uniqueId },
+      { $set: { statusPin: false } }
+    );
+
+    console.log('Update Result:', result);
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ message: 'No pin locations were updated!' });
+    }
 
     return res.status(200).json({ message: 'Updated pin locations status to false' });
   } catch (error) {
     console.error('Error updating pin locations:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
 
 
 
 
+//turn on the hardware to send data
 exports.turnOnhardware = async (req, res, next) => {
-  const { name, uniqueId, email, cellphonenumber, pinlocation } = req.body;
-  const finduser = await User.findOne({ name, email, uniqueId, cellphonenumber });
-  try {
-    if (!finduser) {
-      return res.status(400).json({ message: "User not Found!" });
-    }
-    const hardwareid = finduser.uniqueId;
+  const {token,pinlocation } = req.body;
  
-    const hardware = await Hardware.findOneAndUpdate({ uniqueId: hardwareid }, { pinlocation }, { new: true });
+  try {
+
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id; 
+
+    const userexist= await User.findById(decodedId);
+    if(!userexist){
+      res.status(404).json({message:"Not found!"});
+    }
+    const uniqueId = userexist.uniqueId;
+    const hardware = await Hardware.findOneAndUpdate(
+      { uniqueId },
+      { pinlocation: true },
+      { new: true }
+    );
+    
     if (!hardware) {
       return res.status(400).json({ message: "Hardware not Found!" });
     }
@@ -121,24 +169,29 @@ exports.turnOnhardware = async (req, res, next) => {
 
 
 
-
+//check the user if already register
 exports.userexist = async (req, res, next) => {
-  const { userName, email } = req.body; // Renamed 'name' to 'userName'
-
+  const { token } = req.body; 
+   if(!token){
+    return res.status(401).json({ message: 'User not registered yet!' });
+   }
   try {
-      // Find the user based on userName and email
-      const user = await User.findOne({ name: userName, email });
+    const decoded = jwt.verify(token, SECRET_KEY);
 
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id; 
+
+    const user= await User.findById(decodedId);
       if (!user) {
-          // If user not found, return 404 status with a message
+       
           return res.status(404).json({ message: 'User not registered yet' });
       }
+      const {  name, email: userEmail, cellphonenumber } = user; 
 
-      // If user found, extract relevant information
-      const { uniqueId, name, email: userEmail, cellphonenumber } = user; // Renamed 'name' to 'userName'
-
-      // Return user information
-      return res.status(200).json({ uniqueId, name, email: userEmail, cellphonenumber });
+      return res.status(200).json({ name, email: userEmail, cellphonenumber });
   } catch (error) {
       // If an error occurs, return 500 status with an error message
       return res.status(500).json({ message: 'Internal server error', error: error.message });
@@ -154,9 +207,9 @@ exports.deletetheft = async (req, res, next) => {
   const { uniqueId } = req.body;
 
   try {
-    const count = await TheftDetails.countDocuments({ uniqueId });
+    const count = await Theft.countDocuments({ uniqueId });
     if (count > 5) {
-      const oldestTheftDetail = await TheftDetails.findOneAndDelete({ uniqueId }, { sort: { createdAt: 1 } });
+      const oldestTheftDetail = await Theft.findOneAndDelete({ uniqueId }, { sort: { createdAt: 1 } });
       return res.status(200).json({ message: "Success" });
     } else {
       return res.status(400).json({ message: "No need to delete. Count is less than or equal to 5." });
@@ -171,12 +224,26 @@ exports.deletetheft = async (req, res, next) => {
 
 
 
-
-exports.alltheft = async (req, res, next)=>{
-  const {uniqueId} = req.body;
+//get latest theft status
+exports.theftalert = async (req, res, next)=>{
+  const {token} = req.body;
   
     try{
-       const theft = await TheftDetails.findOne({ uniqueId }).sort({ happenedAt:-1 });
+      const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id; 
+
+    const userexist= await User.findById(decodedId);
+    if(!userexist){
+      res.status(404).json({message:"Not found!"});
+    }
+    const uniqueId = userexist.uniqueId;
+
+       const theft = await Theft.findOne({ uniqueId }).sort({ happenedAt:-1 });
         if(!theft){
       return res.status(400).json({message:"no theft report"});
         }
@@ -200,10 +267,18 @@ exports.alltheft = async (req, res, next)=>{
 
 
 exports.deleteuser = async (req, res, next) =>{
-  const {name,uniqueId,email} = req.body;
+  const {token} = req.body;
   
   try{
-    const deleteduser = await User.findOneAndDelete({name,uniqueId,email});
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id; 
+
+    const deleteduser= await User.findByIdAndDelete(decodedId);
     if(deleteduser){
       return res.status(200).json({message:"successfully deleted!"});
      }
@@ -222,11 +297,23 @@ exports.deleteuser = async (req, res, next) =>{
 
 
 
-
+//check hardware status
   exports.hardwarestatus = async (req, res, next) => {
-  const { uniqueId } = req.query;
+  const { token } = req.body;
 
   try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id; 
+    const userexist= await User.findById(decodedId);
+    if(!userexist){
+      res.status(404).json({message:"Not found!"});
+    }
+    const uniqueId = userexist.uniqueId;
     const hardware = await Hardware.findOne({ uniqueId });
 
     if (!hardware) {
@@ -244,11 +331,23 @@ exports.deleteuser = async (req, res, next) =>{
 
 
 
-
+//check the hardwarestatus
 exports.changestatus = async (req, res, next) => {
-  const { uniqueId, status } = req.body;
+  const { token, status } = req.body;
 
   try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id; 
+    const userexist= await User.findById(decodedId);
+    if(!userexist){
+      res.status(404).json({message:"Not found!"});
+    }
+    const uniqueId = userexist.uniqueId;
     const hardware = await Hardware.findOneAndUpdate({ uniqueId }, { status }, { new: true });
 
     if (!hardware) {
@@ -267,28 +366,38 @@ exports.changestatus = async (req, res, next) => {
 
 
 
-
-
-
-
-exports.allnotification = async (req, res, next) =>  {
-  const { uniqueId } = req.body;
+//get all notification of minor alert and theft alert
+exports.allnotification = async (req, res, next) => {
+  const { token } = req.body;
   try {
+    const decoded = jwt.verify(token, SECRET_KEY);
 
-    const allVibrate = await MinorAlert.find({ uniqueId });
-    const allTheft = await TheftDetails.find({ uniqueId });
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
 
-    // Merge data from all collections into one array
+    const decodedId = decoded.id; 
+    const userexist = await User.findById(decodedId);
+
+    if (!userexist) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    const uniqueId = userexist.uniqueId;
+
+    const allVibrate = await MinorAlert.find({ uniqueId }).lean().exec();
+    const allTheft = await Theft.find({ uniqueId }).lean().exec();
+
     let allData = [];
-    allData = allData.concat(allPinLocation.map(data => ({ ...data.toObject(), collection: 'Pinlocation' })));
-    allData = allData.concat(allVibrate.map(data => ({ ...data.toObject(), collection: 'MinorAlert' })));
-    allData = allData.concat(allTheft.map(data => ({ ...data.toObject(), collection: 'TheftDetails' })));
+
+    allData = allData.concat(allVibrate.map(data => ({ ...data, collection: 'MinorAlert' })));
+    allData = allData.concat(allTheft.map(data => ({ ...data, collection: 'Theft' })));
 
     // Reverse the sort order based on timestamps
     allData.sort((a, b) => {
       const timestampA = a.pinAt || a.vibrateAt || a.happenedAt;
       const timestampB = b.pinAt || b.vibrateAt || b.happenedAt;
-      return new Date(timestampB) - new Date(timestampA); // Reversed order here
+      return new Date(timestampB) - new Date(timestampA); 
     });
 
     if (!allData.length) {
@@ -297,7 +406,8 @@ exports.allnotification = async (req, res, next) =>  {
 
     res.status(200).json({ data: allData });
   } catch (error) {
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error('Error fetching notifications:', error);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
 
@@ -308,25 +418,36 @@ exports.allnotification = async (req, res, next) =>  {
 
 
 
-
-exports.notification = async (req, res, next) => {
-  const { uniqueId } = req.body;
+//get the latest notification
+exports.latestnotification = async (req, res, next) => {
+  const { token } = req.body;
   try {
-    // Retrieve the latest data from MinorAlert collection
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id; 
+    const userexist= await User.findById(decodedId);
+    if(!userexist){
+      res.status(404).json({message:"Not found!"});
+    }
+    const uniqueId = userexist.uniqueId;
+
     const latestVibrate = await MinorAlert.findOne({ uniqueId }).sort({ vibrateAt: -1 }).limit(1);
 
-    // Retrieve the latest data from TheftDetails collection
-    const latestTheft = await TheftDetails.findOne({ uniqueId }).sort({ happenedAt: -1 }).limit(1);
+    const latestTheft = await Theft.findOne({ uniqueId }).sort({ happenedAt: -1 }).limit(1);
 
-    // Determine which data is the latest based on timestamps
+    
     let latestData = null;
     if (latestVibrate && latestTheft) {
       // Compare timestamps to find the latest data
-      latestData = latestVibrate.vibrateAt > latestTheft.happenedAt ? { ...latestVibrate.toObject(), collection: 'MinorAlert' } : { ...latestTheft.toObject(), collection: 'TheftDetails' };
+      latestData = latestVibrate.vibrateAt > latestTheft.happenedAt ? { ...latestVibrate.toObject(), collection: 'MinorAlert' } : { ...latestTheft.toObject(), collection: 'Theft' };
     } else if (latestVibrate) {
       latestData = { ...latestVibrate.toObject(), collection: 'MinorAlert' };
     } else if (latestTheft) {
-      latestData = { ...latestTheft.toObject(), collection: 'TheftDetails' };
+      latestData = { ...latestTheft.toObject(), collection: 'Theft' };
     }
 
     if (!latestData) {
@@ -341,13 +462,32 @@ exports.notification = async (req, res, next) => {
 
 
 
+
+
+
+
+
+
+//get all pinned history
 exports.pinhistory = async (req, res, next) => {
-  const { uniqueId } = req.body; // Destructure uniqueId from req.body
+  const { token } = req.body; // Destructure uniqueId from req.body
 
   try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id; 
+    const userexist= await User.findById(decodedId);
+    if(!userexist){
+      res.status(404).json({message:"Not found!"});
+    }
+    const uniqueId = userexist.uniqueId;
     const pinhistory = await Pinlocation.find({ uniqueId }).sort({ pinAt: -1 });
 
-    if (!pinhistory || pinhistory.length === 0) { // Check if pinhistory is empty
+    if (!pinhistory || pinhistory.length === 0) { 
       return res.status(400).json({ message: 'No pin history recorded' });
     }
 
@@ -358,3 +498,70 @@ exports.pinhistory = async (req, res, next) => {
   }
 };
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// exports.latestnotification = async (req, res, next) => {
+//   const { token } = req.body;
+//   try {
+//     const decoded = jwt.verify(token, SECRET_KEY);
+
+//     if (!decoded || !decoded.id) {
+//       return res.status(401).json({ message: 'Unauthorized Access!' });
+//     }
+
+//     const decodedId = decoded.id; 
+//     const userexist= await User.findById(decodedId);
+//     if(!userexist){
+//       res.status(404).json({message:"Not found!"});
+//     }
+//     const uniqueId = userexist.uniqueId;
+
+//     const latestVibrate = await MinorAlert.findOne({ uniqueId }).sort({ vibrateAt: -1 }).limit(1);
+
+//     const latestTheft = await Theft.findOne({ uniqueId }).sort({ happenedAt: -1 }).limit(1);
+
+//     const latestPin  = await Pinlocation.findOne({uniqueId,statusPin:true}).sort({ happenedAt: -1 }).limit(1);
+
+//     const latesttimepin = latestpin.pinAt;
+
+//     let latestData = null;
+
+//     if (latestVibrate && latestTheft) {
+
+//       latestData = latestVibrate.vibrateAt > latestTheft.happenedAt ? { ...latestVibrate.toObject(), collection: 'MinorAlert' } : { ...latestTheft.toObject(), collection: 'Theft' };
+//     } else if (latestVibrate) {
+//       latestData = { ...latestVibrate.toObject(), collection: 'MinorAlert' };
+//     } else if (latestTheft) {
+//       latestData = { ...latestTheft.toObject(), collection: 'Theft' };
+//     }
+
+//     if (!latestData) {
+//       return res.status(400).json({ message: "No record found" });
+//     }
+
+//     res.status(200).json({ data: [latestData] });
+//   } catch (error) {
+//     return res.status(500).json({ message: 'Internal server error' });
+//   }
+// };
