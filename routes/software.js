@@ -13,7 +13,7 @@ router.post('/theftalert',authenticateToken,theftalert);
 router.post('/deleteuser',authenticateToken,deleteuser);
 router.post('/hardwarestatus',authenticateToken,hardwarestatus);
 router.post('/changestatus',authenticateToken,changestatus);
-router.post('/allnotification',allnotification);
+router.post('/allnotification',authenticateToken,allnotification);
 router.post('/getlatestnotification',authenticateToken,latestnotification);
 router.post('/getpinhistory',authenticateToken,pinhistory);
 
