@@ -2,6 +2,7 @@ const Hardware = require('../models/hardware.js');
 const MinorAlertModel = require('../models/minoralerts.js');  // Avoid naming conflict by renaming the import
 const Pinlocation = require('../models/pinlocation.js');
 const Theft = require('../models/theftdetails.js');
+const TheftAlert = require('../models/theftalert.js');
 const User = require('../models/user.js');
 const jwt = require('jsonwebtoken');
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -64,8 +65,7 @@ exports.getcurrentpinlocation = async (req, res, next) => {
 
     return res.status(200).json({ latitude, longitude, time });
   } catch (error) {
-    console.error("Error fetching pin location:", error);
-
+  
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ message: 'Invalid token' });
     }
@@ -79,6 +79,38 @@ exports.getcurrentpinlocation = async (req, res, next) => {
 };
 
 
+
+exports.send_theftalert = async (req, res, next) => {
+  const { currentlatitude, currentlongitude, level, token } = req.body;
+
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id; 
+    const hardware = await Hardware.findById(decodedId);
+
+    if (!hardware) {
+      return res.status(404).json({ message: "Hardware not found!" });
+    }
+
+    const newTheftAlert = new TheftAlert({
+      currentlongitude,
+      currentlatitude,
+      level,
+      uniqueId: hardware.uniqueId
+    });
+
+    await newTheftAlert.save();
+    res.status(201).json({ message: "Successfully sent!" });
+
+  } catch (error) {
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
 
 
 exports.send_alert = async (req, res, next) => {
