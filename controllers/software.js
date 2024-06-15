@@ -1,10 +1,11 @@
 const Hardware = require('../models/hardware');
-require('dotenv').config();
 const MinorAlert = require('../models/minoralerts.js');
 const Pinlocation = require('../models/pinlocation.js');
 const Theft = require('../models/theftdetails.js');
+const TheftAlert = require('../models/theftalert.js');
 const User = require('../models/user.js');
 const jwt = require('jsonwebtoken');
+require('dotenv').config();
 const SECRET_KEY = process.env.SECRET_KEY;
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_API_KEY);
@@ -225,44 +226,50 @@ exports.deletetheft = async (req, res, next) => {
 
 
 //get latest theft status
-exports.theftalert = async (req, res, next)=>{
-  const {token} = req.body;
-  
-    try{
-      const decoded = jwt.verify(token, SECRET_KEY);
+exports.theftalert = async (req, res, next) => {
+  const { token } = req.body;
+
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
 
     if (!decoded || !decoded.id) {
       return res.status(401).json({ message: 'Unauthorized Access!' });
     }
 
-    const decodedId = decoded.id; 
+    const decodedId = decoded.id;
 
-    const userexist= await User.findById(decodedId);
-    if(!userexist){
-      res.status(404).json({message:"Not found!"});
+    const userexist = await User.findById(decodedId);
+    if (!userexist) {
+      return res.status(404).json({ message: 'Not found!' });
     }
     const uniqueId = userexist.uniqueId;
 
-       const theft = await Theft.findOne({ uniqueId }).sort({ happenedAt:-1 });
-        if(!theft){
-      return res.status(400).json({message:"no theft report"});
-        }
-      const theftlatitude = theft.currentlatitude;
-      const theftlongitude = theft.currentlongitude;
-      const theftdescription = theft.description;
-      const theftlevel =theft.level
-      const happened = theft.happenedAt;
-  
-      return res.status(200).json({latitude:theftlatitude,longitude:theftlongitude,time:happened,description:theftdescription,level:theftlevel});
-  
-    }catch(error){
-   return res.status(500).json({ message: 'Internal server error' });
+    const theft = await Theft.findOne({ uniqueId }).sort({ happenedAt: -1 });
+    const latestPin = await Pinlocation.findOne({ uniqueId }).sort({ happenedAt: -1 });
+
+   
+
+    let response;
+
+    if (theft && (theft.happenedAt > latestPin.pinAt)) {
+      response = {
+        latitude: theft.currentlatitude,
+        longitude: theft.currentlongitude,
+        time: theft.happenedAt,
+        description: theft.description,
+        level: theft.level,
+        source: 'Theft'
+      };
+    } else  {
+     res.status(401).json({message:"not latest theft Alert!"});
     }
-  
-  };
 
-  
+    return res.status(200).json(response);
 
+  } catch (error) {
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
 
 
 
@@ -428,30 +435,34 @@ exports.latestnotification = async (req, res, next) => {
       return res.status(401).json({ message: 'Unauthorized Access!' });
     }
 
-    const decodedId = decoded.id; 
-    const userexist= await User.findById(decodedId);
-    if(!userexist){
-      res.status(404).json({message:"Not found!"});
+    const decodedId = decoded.id;
+    const userexist = await User.findById(decodedId);
+    if (!userexist) {
+      return res.status(404).json({ message: "Not found!" });
     }
+
     const uniqueId = userexist.uniqueId;
 
-    const latestVibrate = await MinorAlert.findOne({ uniqueId }).sort({ vibrateAt: -1 }).limit(1);
+    const latestVibrate = await MinorAlert.findOne({ uniqueId }).sort({ vibrateAt: -1 });
+    const latestTheft = await Theft.findOne({ uniqueId }).sort({ happenedAt: -1 });
+    const latestPin = await Pinlocation.findOne({ uniqueId, statusPin: true }).sort({ pinAt: -1 });
 
-    const latestTheft = await Theft.findOne({ uniqueId }).sort({ happenedAt: -1 }).limit(1);
-
-    
     let latestData = null;
-    if (latestVibrate && latestTheft) {
-      // Compare timestamps to find the latest data
-      latestData = latestVibrate.vibrateAt > latestTheft.happenedAt ? { ...latestVibrate.toObject(), collection: 'MinorAlert' } : { ...latestTheft.toObject(), collection: 'Theft' };
-    } else if (latestVibrate) {
+
+    if (latestPin && ((latestVibrate && latestPin.pinAt < latestVibrate.vibrateAt) || (latestTheft && latestPin.pinAt < latestTheft.happenedAt))) {
+      latestData = latestVibrate && latestVibrate.vibrateAt > (latestTheft ? latestTheft.happenedAt : 0) 
+        ? { ...latestVibrate.toObject(), collection: 'MinorAlert' } 
+        : latestTheft 
+          ? { ...latestTheft.toObject(), collection: 'Theft' }
+          : null;
+    } else if (latestVibrate && (!latestTheft || latestVibrate.vibrateAt > latestTheft.happenedAt)) {
       latestData = { ...latestVibrate.toObject(), collection: 'MinorAlert' };
     } else if (latestTheft) {
       latestData = { ...latestTheft.toObject(), collection: 'Theft' };
     }
 
     if (!latestData) {
-      return res.status(400).json({ message: "No record found" });
+      return res.status(400).json({ message: latestPin });
     }
 
     res.status(200).json({ data: [latestData] });
