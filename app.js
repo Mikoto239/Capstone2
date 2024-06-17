@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const homeRouter = require('./home.js');
 const SoftwareRoute = require('./routes/software.js');
 const HardwareRoute = require('./routes/hardware.js');
+const BothRoute = require('./routes/both.js');
 const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,6 +22,7 @@ app.use(cors());
 
 app.use('/api', SoftwareRoute);
 app.use('/api', HardwareRoute);
+app.use('/api', BothRoute);
 
 app.use('/', homeRouter);
 
