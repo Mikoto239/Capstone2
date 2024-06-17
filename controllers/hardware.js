@@ -1,5 +1,5 @@
 const Hardware = require('../models/hardware.js');
-const MinorAlertModel = require('../models/minoralerts.js');  // Avoid naming conflict by renaming the import
+const MinorAlert = require('../models/minoralerts.js');  // Avoid naming conflict by renaming the import
 const Pinlocation = require('../models/pinlocation.js');
 const Theft = require('../models/theftdetails.js');
 const TheftAlert = require('../models/theftalert.js');
@@ -113,27 +113,31 @@ exports.send_theftalert = async (req, res, next) => {
 };
 
 
-exports.send_alert = async (req, res, next) => {
- const { description, latitude, longitude,level,token } = req.body;
-  try {
 
+exports.send_alert = async (req, res, next) => {
+  const { description, latitude, longitude, level, token } = req.body;
+  
+  if (!description || !latitude || !longitude || !level || !token) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+
+  try {
     const decoded = jwt.verify(token, SECRET_KEY);
 
-    if (!decoded || !decoded.id) { 
+    if (!decoded || !decoded.id) {
       return res.status(401).json({ message: 'Unauthorized Access!' });
     }
 
-    const decodedId = decoded.id; 
-    const hardware = await Hardware.find({_id:decodedId});
-    if(!hardware){
-      res.status(404).json({message:"Not found!"});
-    }
+    const decodedId = decoded.id;
+    const hardware = await Hardware.findById(decodedId);
 
+    if (!hardware) {
+      return res.status(404).json({ message: 'Hardware not found!' });
+    }
 
     const response = await axios.get(`https://geocode.maps.co/reverse?lat=${latitude}&lon=${longitude}&api_key=${process.env.OPENCAGE_API_KEY}`);
     const responseData = response.data;
-    
-  
+
     if (!responseData || !responseData.display_name || !responseData.address) {
       return res.status(404).json({ message: 'No address information found for the provided coordinates' });
     }
@@ -143,7 +147,6 @@ exports.send_alert = async (req, res, next) => {
       address: { road, quarter, city, state, region, country_code }
     } = responseData;
 
-    // Create the address object
     const address = {
       formatted: display_name,
       road,
@@ -154,27 +157,28 @@ exports.send_alert = async (req, res, next) => {
       country_code
     };
 
-    const minoralert = new MinorAlertModel({
+    const minoralert = new MinorAlert({
       description,
       latitude,
       longitude,
-      uniqueId:hardware.uniqueId,
+      uniqueId: hardware.uniqueId,
       level,
       address: address.formatted
     });
 
     await minoralert.save();
-    return res.status(200).send('Data saved successfully!');
+    return res.status(200).json({ message: 'Data saved successfully!' });
   } catch (error) {
     if (error.response) {
-      return res.status(error.response.status).send('Failed to retrieve address information');
+      return res.status(error.response.status).json({ message: 'Failed to retrieve address information' });
     } else if (error.name === 'ValidationError') {
-      return res.status(400).send('Validation error');
+      return res.status(400).json({ message: 'Validation error', details: error.errors });
     } else {
-      return res.status(500).send('Failed to save data');
+      return res.status(500).json({ message: 'Failed to save data', error: error.message });
     }
   }
 };
+
 
 
 
