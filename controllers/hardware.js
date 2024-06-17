@@ -1,5 +1,5 @@
 const Hardware = require('../models/hardware.js');
-const MinorAlert = require('../models/minoralerts.js');  // Avoid naming conflict by renaming the import
+const MinorAlert = require('../models/minoralerts.js');
 const Pinlocation = require('../models/pinlocation.js');
 const Theft = require('../models/theftdetails.js');
 const TheftAlert = require('../models/theftalert.js');
@@ -10,7 +10,7 @@ require('dotenv').config();
 const axios = require('axios');
 
 
-
+// hardware registration
 exports.hardwareregistration = async (req, res, next) => {
   const { uniqueId } = req.body;
 
@@ -178,8 +178,6 @@ exports.send_alert = async (req, res, next) => {
     }
   }
 };
-
-
 
 
 
