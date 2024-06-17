@@ -23,7 +23,7 @@ exports.isHardwareOn = async (req, res, next) => {
     const hardware = await Hardware.findOne({ _id: decodedId });
 
     if (!hardware || !hardware.status) {
-      return res.status(404).json({ message: 'Hardware is Off!' });
+      return res.status(404).json({ message: 'Hardware is Off!'+hardware });
     }
 
  
