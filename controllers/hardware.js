@@ -117,9 +117,7 @@ exports.send_theftalert = async (req, res, next) => {
 exports.send_alert = async (req, res, next) => {
   const { description, latitude, longitude, level, token } = req.body;
   
-  if (!description || !latitude || !longitude || !level || !token) {
-    return res.status(400).json({ message: 'All fields are required' });
-  }
+  
 
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
