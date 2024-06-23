@@ -10,6 +10,7 @@ const minorAlertDataSchema = new mongoose.Schema({
   latitude: { type: Number, required: true },
   longitude: { type: Number, required: true },
   uniqueId: { type: String, required: true },
+  address:{ type: String, required: true },
   vibrateAt: {
     type: Date,
     default: () => moment.tz('Asia/Manila').add(8, 'hours').toDate() 
