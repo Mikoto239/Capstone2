@@ -39,6 +39,7 @@ exports.hardwareregistration = async (req, res, next) => {
 };
 
 
+
 exports.getcurrentpinlocation = async (req, res, next) => {
   const { token } = req.body;
 
@@ -81,7 +82,7 @@ exports.getcurrentpinlocation = async (req, res, next) => {
 
 
 exports.send_theftalert = async (req, res, next) => {
-  const { currentlatitude, currentlongitude, level, token } = req.body;
+  const { currentlatitude, currentlongitude, token } = req.body;
 
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
@@ -96,12 +97,33 @@ exports.send_theftalert = async (req, res, next) => {
     if (!hardware) {
       return res.status(404).json({ message: "Hardware not found!" });
     }
+    const response = await axios.get(`https://geocode.maps.co/reverse?lat=${currentlatitude}&lon=${currentlongitude}&api_key=${process.env.OPENCAGE_API_KEY}`);
+    const responseData = response.data;
+
+    if (!responseData || !responseData.display_name || !responseData.address) {
+      return res.status(404).json({ message: 'No address information found for the provided coordinates' });
+    }
+
+    const {
+      display_name,
+      address: { road, quarter, city, state, region, country_code }
+    } = responseData;
+
+    const address = {
+      formatted: display_name,
+      road,
+      quarter,
+      city,
+      state,
+      region,
+      country_code
+    };
 
     const newTheftAlert = new TheftAlert({
-      currentlongitude,
       currentlatitude,
-      level,
-      uniqueId: hardware.uniqueId
+      currentlongitude,
+      uniqueId: hardware.uniqueId,
+      address: address.formatted
     });
 
     await newTheftAlert.save();
@@ -113,11 +135,13 @@ exports.send_theftalert = async (req, res, next) => {
 };
 
 
-
+//send minor alerts
 exports.send_alert = async (req, res, next) => {
   const { description, latitude, longitude, level, token } = req.body;
   
-  
+  if (!description || !latitude || !longitude || !level || !token) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
 
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
