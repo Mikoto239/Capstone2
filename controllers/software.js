@@ -192,7 +192,7 @@ exports.userexist = async (req, res, next) => {
       }
       const {  name, email,uniqueId, cellphonenumber } = user; 
 
-      return res.status(200).json({ name, email, cellphonenumber,uniqueId });
+      return res.status(200).json({ success:true,name, email, cellphonenumber,uniqueId });
   } catch (error) {
       // If an error occurs, return 500 status with an error message
       return res.status(500).json({ message: 'Internal server error', error: error.message });
