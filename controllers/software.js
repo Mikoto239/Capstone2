@@ -50,7 +50,7 @@ exports.userregistration = async (req, res, next) => {
   }
 };
 
-//do no
+//get the latest pinned location
 exports.getlocation = async (req, res, next) => {
 
   const { token } = req.body;  // Ensure you are using req.query to get the token
@@ -84,7 +84,7 @@ exports.getlocation = async (req, res, next) => {
       const latitude = pinLocation.currentlatitude;
       const longitude = pinLocation.currentlongitude;
       const time = pinLocation.pinAt
-      return res.status(200).json({ latitude: latitude, longitude: longitude, time:time});
+      return res.status(200).json({ success:true,latitude: latitude, longitude: longitude, time:time});
   } catch (error) {
     console.error('Error during getlocation:', error);
     if (error.name === 'JsonWebTokenError') {
