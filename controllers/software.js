@@ -74,13 +74,17 @@ exports.getlocation = async (req, res, next) => {
     }
 
     const uniqueId = userId.uniqueId;
-    const results = await MinorAlert.find({ uniqueId });
+     const pinLocation = await Pinlocation.findOne({ uniqueId,statusPin:true}).sort({ pinAt: -1 });
 
-    if (results.length === 0) {
-      return res.status(404).json({ message: 'No information found' });
-    }
-
-    return res.status(200).json(results);
+      if (!pinLocation) {
+          console.log("No pin location found for uniqueId:", uniqueId);
+          return res.status(400).json({ message: "Invalid uniqueId" });
+      } 
+      
+      const latitude = pinLocation.currentlatitude;
+      const longitude = pinLocation.currentlongitude;
+      const time = pinLocation.pinAt
+      return res.status(200).json({ latitude: latitude, longitude: longitude, time:time});
   } catch (error) {
     console.error('Error during getlocation:', error);
     if (error.name === 'JsonWebTokenError') {
@@ -485,6 +489,44 @@ exports.pinhistory = async (req, res, next) => {
 
 
 
+// exports.getlocation = async (req, res, next) => {
+
+//   const { token } = req.body;  // Ensure you are using req.query to get the token
+
+//   if (!token) {
+//     return res.status(400).json({ message: 'No token provided' });
+//   }
+
+//   try {
+//     const decoded = jwt.verify(token, SECRET_KEY);
+
+//     if (!decoded || !decoded.id) {
+//       return res.status(401).json({ message: 'Unauthorized Access!' });
+//     }
+
+//     const decodedId = decoded.id;
+
+//     const userId = await User.findById(decodedId);
+//     if (!userId) {
+//       return res.status(404).json({ message: "User not found!" });
+//     }
+
+//     const uniqueId = userId.uniqueId;
+//     const results = await MinorAlert.find({ uniqueId });
+
+//     if (results.length === 0) {
+//       return res.status(404).json({ message: 'No information found' });
+//     }
+
+//     return res.status(200).json(results);
+//   } catch (error) {
+//     console.error('Error during getlocation:', error);
+//     if (error.name === 'JsonWebTokenError') {
+//       return res.status(401).json({ message: 'Invalid token' });
+//     }
+//     return res.status(500).json({ message: 'Internal server error', error: error.message });
+//   }
+// };
 
 
 
