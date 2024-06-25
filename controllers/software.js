@@ -277,6 +277,57 @@ exports.theftalert = async (req, res, next) => {
 
 
 
+
+
+
+
+//get latest theft status
+exports.send_theftalert = async (req, res, next) => {
+  const { token } = req.body;
+
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id;
+
+    const userexist = await User.findById(decodedId);
+    if (!userexist) {
+      return res.status(404).json({ message: 'Not fasdound!' });
+    }
+    const uniqueId = userexist.uniqueId;
+
+    const theft = await TheftAlert.findOne({ uniqueId }).sort({ happenedAt: -1 });
+    const latestPin = await Pinlocation.findOne({ uniqueId }).sort({ happenedAt: -1 });
+
+    let response;
+
+    if (theft && (theft.happenedAt > latestPin.pinAt)) {
+      response = {
+        latitude: theft.currentlatitude,
+        longitude: theft.currentlongitude,
+        time: theft.happenedAt,
+        description: theft.description,
+        level: theft.level,
+        source: 'Theft'
+      };
+    } else  {
+     res.status(401).json({message:"not latest theft Alert!"});
+    }
+
+    return res.status(200).json(response);
+
+  } catch (error) {
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
+
+
 exports.deleteuser = async (req, res, next) =>{
   const {token} = req.body;
   
