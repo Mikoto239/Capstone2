@@ -4,7 +4,7 @@ const {mobilehardwarestatus, hardwarestatus} = require('../controllers/both.js')
 const { isHardwareOn } = require('../middleware/hardwarestatus');
 const {authenticateToken} = require('../middleware/authorization');
 
-router.post('/hardwarestatus',authenticateToken,isHardwareOn,hardwarestatus);
-router.post('/mobilehardwarestatus',authenticateToken,isHardwareOn,mobilehardwarestatus);
+router.post('/hardwarestatus',authenticateToken,hardwarestatus);
+router.post('/mobilehardwarestatus',authenticateToken,mobilehardwarestatus);
 
 module.exports = router;
