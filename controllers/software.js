@@ -204,8 +204,28 @@ exports.userexist = async (req, res, next) => {
 };
 
 
+//send token on log in 
+exports.sendtoken = async (req, res, next) => {
+  const { email, name } = req.body;
 
+  try {
+    // Find user by email and name
+    const user = await User.findOne({ email, name });
 
+    if (!user) {
+      return res.status(404).json({ message: 'User not registered yet' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign({ id: user._id }, SECRET_KEY);
+
+    return res.status(200).json({ success: true, token });
+  } catch (error) {
+    // Handle errors
+    console.error('Error in userexist:', error.message);
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
 
 
 exports.deletetheft = async (req, res, next) => {
