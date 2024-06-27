@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const {getlocation,turnoffhardware,turnOnhardware,userexist,deletetheft,theftalert, userregistration, deleteuser, changestatus, latestnotification,allnotification,pinhistory,send_theftalert,updateusernumber} = require('../controllers/software');
+const {getlocation,turnoffhardware,turnOnhardware,userexist,deletetheft,theftalert, userregistration, deleteuser, changestatus, latestnotification,allnotification,pinhistory,send_theftalert,updateusernumber,sendtoken} = require('../controllers/software');
 const {authenticateToken} = require('../middleware/authorization');
 router.post('/userregister',userregistration);
 router.post('/getlocation',authenticateToken,getlocation);
@@ -16,6 +16,7 @@ router.post('/getlatestnotification',authenticateToken,latestnotification);
 router.post('/getpinhistory',authenticateToken,pinhistory);
 router.post('/currenttheftlocation',authenticateToken,send_theftalert );
 router.post('/updateusernumber',authenticateToken,updateusernumber);
+router.post('/sendtoken',authenticateToken,sendtoken);
 module.exports = router;
 
 
