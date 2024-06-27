@@ -156,7 +156,7 @@ exports.turnOnhardware = async (req, res, next) => {
     const uniqueId = userexist.uniqueId;
     const hardware = await Hardware.findOneAndUpdate(
       { uniqueId },
-      { pinlocation: true },
+      { pinlocation: pinlocation },
       { new: true }
     );
     
