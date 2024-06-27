@@ -553,6 +553,28 @@ exports.pinhistory = async (req, res, next) => {
   }
 };
 
+//update user number
+exports.updateusernumber = async (req, res, next) => {
+  const { token, phonenumber } = req.body;
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id;
+
+    const user = await User.findByIdAndUpdate(decodedId, { cellphonenumber: phonenumber }, { new: true });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found!' });
+    }
+
+    return res.status(200).json({ success:true,message: 'Phone number updated successfully', user });
+  } catch (error) {
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
 
 
 
