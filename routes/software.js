@@ -16,7 +16,7 @@ router.post('/getlatestnotification',authenticateToken,latestnotification);
 router.post('/getpinhistory',authenticateToken,pinhistory);
 router.post('/currenttheftlocation',authenticateToken,send_theftalert );
 router.post('/updateusernumber',authenticateToken,updateusernumber);
-router.post('/sendtoken',authenticateToken,sendtoken);
+router.post('/sendtoken',sendtoken);
 module.exports = router;
 
 
