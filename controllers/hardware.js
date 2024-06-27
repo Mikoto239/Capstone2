@@ -264,7 +264,7 @@ exports.pinlocation = async (req, res, next) => {
     // Update the hardware with the new pin location
     const updatedHardware = await Hardware.findOneAndUpdate(
       { _id: decodedId },
-      { pinlocation },
+      { pinlocation:false },
       { new: true }
     );
 
@@ -278,7 +278,7 @@ exports.pinlocation = async (req, res, next) => {
       currentlatitude,
       currentlongitude,
       address: address.formatted,
-      statusPin
+      statusPin:true
     });
 
     await pinLocationSave.save();
