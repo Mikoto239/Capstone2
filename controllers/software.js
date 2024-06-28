@@ -94,12 +94,12 @@ exports.getlocation = async (req, res, next) => {
   }
 };
 
-
-//turn off the hardware to stop sending data
+// Turn off the hardware to stop sending data
 exports.turnoffhardware = async (req, res, next) => {
   const { token } = req.body;
 
   try {
+    // Verify the token
     const decoded = jwt.verify(token, SECRET_KEY);
 
     if (!decoded || !decoded.id) {
@@ -108,29 +108,42 @@ exports.turnoffhardware = async (req, res, next) => {
 
     const decodedId = decoded.id;
 
+    // Find the user by ID
     const user = await User.findById(decodedId);
     if (!user) {
       return res.status(404).json({ message: "User not found!" });
     }
 
     const uniqueId = user.uniqueId;
-    const result = await Pinlocation.updateMany(
+
+    // Update pin location status
+    const pinUpdateResult = await Pinlocation.updateMany(
       { uniqueId },
       { $set: { statusPin: false } }
     );
 
-    console.log('Update Result:', result);
-
-    if (result.modifiedCount === 0) {
+    if (pinUpdateResult.modifiedCount === 0) {
       return res.status(404).json({ message: 'No pin locations were updated!' });
     }
 
-    return res.status(200).json({ message: 'Updated pin locations status to false' });
+    // Update hardware status
+    const hardwareUpdateResult = await Hardware.findOneAndUpdate(
+      { uniqueId },
+      { $set: { status: false } },
+      { new: true }
+    );
+
+    if (!hardwareUpdateResult) {
+      return res.status(404).json({ message: 'Hardware not found!' });
+    }
+
+    return res.status(200).json({ message: 'Updated pin locations and hardware status to false' });
   } catch (error) {
     console.error('Error updating pin locations:', error);
     return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
+
 
 
 
