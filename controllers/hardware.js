@@ -206,7 +206,7 @@ exports.send_alert = async (req, res, next) => {
 
 
 exports.pinlocation = async (req, res, next) => {
-  const { pinlocation, currentlatitude, currentlongitude, statusPin, token } = req.body;
+  const { pinlocation, currentlatitude, currentlongitude, statusPin, token,status } = req.body;
 
   if (!token) {
     return res.status(401).json({ message: 'No token provided' });
@@ -265,6 +265,7 @@ exports.pinlocation = async (req, res, next) => {
     const updatedHardware = await Hardware.findOneAndUpdate(
       { _id: decodedId },
       { pinlocation:false },
+        { status:true },
       { new: true }
     );
 
