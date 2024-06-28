@@ -261,13 +261,14 @@ exports.pinlocation = async (req, res, next) => {
       await existingPinLocation.save();
     }
 
-    // Update the hardware with the new pin location
-    const updatedHardware = await Hardware.findOneAndUpdate(
-      { _id: decodedId },
-      { pinlocation:false },
-        { status:true },
-      { new: true }
-    );
+const updatedHardware = await Hardware.findOneAndUpdate(
+  { _id: decodedId },
+  { 
+    pinlocation: false,
+    status: true 
+  },
+  { new: true }
+);
 
     if (!updatedHardware) {
       return res.status(404).json({ message: 'Hardware not found' });
