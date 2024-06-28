@@ -7,7 +7,7 @@ const {authenticateToken} = require('../middleware/authorization');
 
 router.post('/checkpinlocation',authenticateToken, isHardwareOn,getcurrentpinlocation);
 router.post('/send_alert',authenticateToken,isHardwareOn,send_alert);
-router.post('/pinthislocation',authenticateToken,isHardwareOn,pinlocation);
+router.post('/pinthislocation',authenticateToken,pinlocation);
 router.post('/pinstatus',authenticateToken,pinstatus);
 router.post('/sendtheftdetails',authenticateToken,isHardwareOn,theftdetails);
 router.post('/hardwareregister',hardwareregistration);
