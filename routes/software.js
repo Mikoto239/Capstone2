@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {getlocation,turnoffhardware,turnOnhardware,userexist,deletetheft,theftalert, userregistration, deleteuser, changestatus, latestnotification,allnotification,pinhistory,send_theftalert,updateusernumber,sendtoken} = require('../controllers/software');
 const {authenticateToken} = require('../middleware/authorization');
+const { isHardwareOn } = require('../middleware/mobilehardwarestatus');
 router.post('/userregister',userregistration);
 router.post('/getlocation',authenticateToken,getlocation);
 router.post('/turnoff',authenticateToken,turnoffhardware);
