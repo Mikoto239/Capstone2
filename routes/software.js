@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const {getlocation,turnoffhardware,turnOnhardware,userexist,deletetheft,theftalert, userregistration, deleteuser, changestatus, latestnotification,allnotification,pinhistory,send_theftalert,updateusernumber,sendtoken} = require('../controllers/software');
+const {getlocation,turnoffhardware,turnOnhardware,userexist,deletetheft,theftalert, userregistration, deleteuser, changestatus, latestnotification,allnotification,pinhistory,send_theftalert,updateusernumber,sendtoken,mapnotification} = require('../controllers/software');
 const {authenticateToken} = require('../middleware/authorization');
 const { isHardwareOn } = require('../middleware/mobilehardwarestatus');
 router.post('/userregister',userregistration);
@@ -18,6 +18,7 @@ router.post('/getpinhistory',authenticateToken,pinhistory);
 router.post('/currenttheftlocation',authenticateToken,isHardwareOn ,send_theftalert );
 router.post('/updateusernumber',authenticateToken,updateusernumber);
 router.post('/sendtoken',sendtoken);
+router.post('/latestmapnotification',authenticateToken,mapnotification);
 module.exports = router;
 
 
