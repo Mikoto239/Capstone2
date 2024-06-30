@@ -531,6 +531,62 @@ exports.latestnotification = async (req, res, next) => {
 
 
 
+//get the latest map notification
+exports.mapnotification = async (req, res, next) => {
+  const { token } = req.body;
+
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
+    }
+
+    const decodedId = decoded.id;
+    const userexist = await User.findById(decodedId);
+    if (!userexist) {
+      return res.status(404).json({ message: "User not found!" });
+    }
+
+    const uniqueId = userexist.uniqueId;
+
+    const latestVibrate = await MinorAlert.findOne({ uniqueId }).sort({ vibrateAt: -1 });
+    const latestTheft = await TheftAlert.findOne({ uniqueId }).sort({ happenedAt: -1 });
+    const latestPin = await Pinlocation.findOne({ uniqueId, statusPin: true }).sort({ pinAt: -1 });
+
+    let latestData = null;
+
+    // Determine which data is the latest
+    if (latestVibrate && latestTheft) {
+      if (latestVibrate.vibrateAt > latestTheft.happenedAt) {
+        latestData = { ...latestVibrate.toObject(), collection: 'MinorAlert' };
+      } else {
+        latestData = { ...latestTheft.toObject(), collection: 'Theft' };
+      }
+    } else if (latestVibrate) {
+      latestData = { ...latestVibrate.toObject(), collection: 'MinorAlert' };
+    } else if (latestTheft) {
+      latestData = { ...latestTheft.toObject(), collection: 'Theft' };
+    }
+
+    // Check if the latest alert is newer than the latest pin location
+    if (latestPin && latestData && latestData.vibrateAt ? latestData.vibrateAt > latestPin.pinAt : latestData.happenedAt > latestPin.pinAt) {
+      return res.status(200).json({ data: [latestData] });
+    } else {
+      return res.status(400).json({ message: "No newer alerts found than the latest pin location!" });
+    }
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
+
+
+
+
 
 
 
