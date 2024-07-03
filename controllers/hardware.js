@@ -123,7 +123,8 @@ exports.send_theftalert = async (req, res, next) => {
       currentlatitude,
       currentlongitude,
       uniqueId: hardware.uniqueId,
-      address: address.formatted
+      address: address.formatted,
+      level:"Level 4"
     });
 
     await newTheftAlert.save();
