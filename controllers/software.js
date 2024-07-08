@@ -532,6 +532,7 @@ exports.latestnotification = async (req, res, next) => {
 
 
 //get the latest map notification
+// get the latest map notification
 exports.mapnotification = async (req, res, next) => {
   const { token } = req.body;
 
@@ -556,7 +557,7 @@ exports.mapnotification = async (req, res, next) => {
 
     let latestData = null;
 
-    // Determine which data is the latest
+    // Determine which data is the latest between vibrate and theft
     if (latestVibrate && latestTheft) {
       if (latestVibrate.vibrateAt > latestTheft.happenedAt) {
         latestData = { ...latestVibrate.toObject(), collection: 'MinorAlert' };
@@ -569,11 +570,13 @@ exports.mapnotification = async (req, res, next) => {
       latestData = { ...latestTheft.toObject(), collection: 'Theft' };
     }
 
-    // Check if the latest alert is newer than the latest pin location
-    if (latestPin && latestData && latestData.vibrateAt ? latestData.vibrateAt > latestPin.pinAt : latestData.happenedAt > latestPin.pinAt) {
+    // Check if latest pinAt is greater than the latest vibrateAt and happenedAt
+    if (latestPin && latestPin.pinAt > (latestVibrate ? latestVibrate.vibrateAt : new Date(0)) && latestPin.pinAt > (latestTheft ? latestTheft.happenedAt : new Date(0))) {
+      return res.status(200).json({ data: [{ ...latestPin.toObject(), collection: 'Pinlocation' }] });
+    } else if (latestData) {
       return res.status(200).json({ data: [latestData] });
     } else {
-      return res.status(400).json({ message: "No newer alerts found than the latest pin location!" });
+      return res.status(400).json({ message: "No alerts or pins found!" });
     }
 
   } catch (error) {
@@ -581,7 +584,6 @@ exports.mapnotification = async (req, res, next) => {
     return res.status(500).json({ message: 'Internal server error' });
   }
 };
-
 
 
 
