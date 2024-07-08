@@ -532,7 +532,6 @@ exports.latestnotification = async (req, res, next) => {
 
 
 //get the latest map notification
-// get the latest map notification
 exports.mapnotification = async (req, res, next) => {
   const { token } = req.body;
 
