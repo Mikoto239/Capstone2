@@ -4,7 +4,7 @@ const {getlocation,turnoffhardware,turnOnhardware,userexist,deletetheft,theftale
 const {authenticateToken} = require('../middleware/authorization');
 const { isHardwareOn } = require('../middleware/mobilehardwarestatus');
 router.post('/userregister',userregistration);
-router.post('/getlocation',authenticateToken,getlocation);
+router.post('/getlocation',authenticateToken,isHardwareOn,getlocation);
 router.post('/turnoff',authenticateToken,turnoffhardware);
 router.post('/currentlocation',authenticateToken,turnOnhardware);
 router.post('/checkuser',authenticateToken,userexist);
