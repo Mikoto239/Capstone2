@@ -18,7 +18,7 @@ router.post('/getpinhistory',authenticateToken,pinhistory);
 router.post('/currenttheftlocation',authenticateToken,isHardwareOn ,send_theftalert );
 router.post('/updateusernumber',authenticateToken,updateusernumber);
 router.post('/sendtoken',sendtoken);
-router.post('/latestmapnotification',authenticateToken,mapnotification);
+router.post('/latestmapnotification',authenticateToken,isHardwareOn,mapnotification);
 module.exports = router;
 
 
