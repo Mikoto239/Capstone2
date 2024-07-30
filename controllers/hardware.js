@@ -205,9 +205,8 @@ exports.send_alert = async (req, res, next) => {
 
 
 
-
 exports.pinlocation = async (req, res, next) => {
-  const { pinlocation, currentlatitude, currentlongitude, statusPin, token,status } = req.body;
+  const { pinlocation, currentlatitude, currentlongitude, statusPin, token, status } = req.body;
 
   if (!token) {
     return res.status(401).json({ message: 'No token provided' });
@@ -231,6 +230,18 @@ exports.pinlocation = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid location coordinates' });
     }
 
+    const hardwareuniqueid = hardware.uniqueId;
+    const existingPinLocations = await Pinlocation.find({ uniqueId: hardwareuniqueid, statusPin: true });
+
+    if (existingPinLocations.length > 0) {
+      await Hardware.findOneAndUpdate(
+        { uniqueId: hardwareuniqueid },
+        { pinlocation: false, status: false },
+        { new: true }
+      );
+      return res.status(400).json({ message: "Error fetching the location" });
+    }
+
     const response = await axios.get(`https://geocode.maps.co/reverse?lat=${currentlatitude}&lon=${currentlongitude}&api_key=${process.env.OPENCAGE_API_KEY}`);
     const responseData = response.data;
 
@@ -238,10 +249,7 @@ exports.pinlocation = async (req, res, next) => {
       return res.status(404).json({ message: 'No address information found for the provided coordinates' });
     }
 
-    const {
-      display_name,
-      address: { road, quarter, city, state, region, country_code }
-    } = responseData;
+    const { display_name, address: { road, quarter, city, state, region, country_code } } = responseData;
 
     const address = {
       formatted: display_name,
@@ -254,22 +262,18 @@ exports.pinlocation = async (req, res, next) => {
     };
 
     // Find the pin location with statusPin: true and uniqueId
-    const existingPinLocation = await Pinlocation.findOne({ uniqueId: hardware.uniqueId, statusPin: true }).sort({ pinAt: -1 });
+    const existingPinLocation = await Pinlocation.findOne({ uniqueId: hardwareuniqueid, statusPin: true }).sort({ pinAt: -1 });
 
     if (existingPinLocation) {
-      // Update the statusPin to false
       existingPinLocation.statusPin = false;
       await existingPinLocation.save();
     }
 
-const updatedHardware = await Hardware.findOneAndUpdate(
-  { _id: decodedId },
-  { 
-    pinlocation: false,
-    status: true 
-  },
-  { new: true }
-);
+    const updatedHardware = await Hardware.findOneAndUpdate(
+      { _id: decodedId },
+      { pinlocation: false, status: true },
+      { new: true }
+    );
 
     if (!updatedHardware) {
       return res.status(404).json({ message: 'Hardware not found' });
@@ -277,11 +281,11 @@ const updatedHardware = await Hardware.findOneAndUpdate(
 
     // Create a new pin location document with the updated status
     const pinLocationSave = new Pinlocation({
-      uniqueId: hardware.uniqueId,
+      uniqueId: hardwareuniqueid,
       currentlatitude,
       currentlongitude,
       address: address.formatted,
-      statusPin:true
+      statusPin: true
     });
 
     await pinLocationSave.save();
