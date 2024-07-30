@@ -140,7 +140,7 @@ exports.send_theftalert = async (req, res, next) => {
 exports.send_alert = async (req, res, next) => {
   const { description, latitude, longitude, level, token } = req.body;
   
-  if (!description || !latitude || !longitude || !level || !token) {
+  if (!description || !level || !token) {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
