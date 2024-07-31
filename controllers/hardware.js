@@ -236,7 +236,7 @@ exports.pinlocation = async (req, res, next) => {
     if (existingPinLocations.length > 0) {
       await Hardware.findOneAndUpdate(
         { uniqueId: hardwareuniqueid },
-        { pinlocation: false, status: false },
+        { pinlocation: false},
         { new: true }
       );
       return res.status(400).json({ message: "Error fetching the location" });
