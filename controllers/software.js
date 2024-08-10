@@ -520,48 +520,49 @@ exports.allnotification = async (req, res, next) => {
 
 //get the latest notification
 exports.latestnotification = async (req, res, next) => {
-    const { token } = req.body;
-    try {
-        const decoded = jwt.verify(token, SECRET_KEY);
+  const { token } = req.body;
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
 
-        if (!decoded || !decoded.id) {
-            return res.status(401).json({ message: 'Unauthorized Access!' });
-        }
-
-        const decodedId = decoded.id;
-        const userexist = await User.findById(decodedId);
-        if (!userexist) {
-            return res.status(404).json({ message: "Not found!" });
-        }
-
-        const uniqueId = userexist.uniqueId;
-
-        const latestVibrate = await MinorAlert.findOne({ uniqueId }).sort({ vibrateAt: -1 });
-        const latestTheft = await Theft.findOne({ uniqueId }).sort({ happenedAt: -1 });
-        const latestPin = await Pinlocation.findOne({ uniqueId, statusPin: true }).sort({ pinAt: -1 });
-
-        let latestData = null;
-
-        // Check for the latest event among Theft, MinorAlert, and Pinlocation
-        if (latestTheft && (!latestVibrate || latestTheft.happenedAt > latestVibrate.vibrateAt)) {
-            latestData = { ...latestTheft.toObject(), collection: 'Theft' };
-        } else if (latestVibrate) {
-            latestData = { ...latestVibrate.toObject(), collection: 'MinorAlert' };
-        } else if (latestPin) {
-            latestData = { ...latestPin.toObject(), collection: 'Pinlocation' };
-        }
-
-        if (!latestData) {
-            return res.status(400).json({ message: 'No notifications found' });
-        }
-
-        res.status(200).json({ data: [latestData] });
-    } catch (error) {
-        return res.status(500).json({ message: 'Internal server error' });
+    if (!decoded || !decoded.id) {
+      return res.status(401).json({ message: 'Unauthorized Access!' });
     }
+
+    const decodedId = decoded.id;
+    const userexist = await User.findById(decodedId);
+    if (!userexist) {
+      return res.status(404).json({ message: "Not found!" });
+    }
+
+    const uniqueId = userexist.uniqueId;
+
+    const latestVibrate = await MinorAlert.findOne({ uniqueId }).sort({ vibrateAt: -1 });
+    const latestTheft = await Theft.findOne({ uniqueId }).sort({ happenedAt: -1 });
+    const latestPin = await Pinlocation.findOne({ uniqueId, statusPin: true }).sort({ pinAt: -1 });
+
+    let latestData = null;
+
+    if (latestPin && ((latestVibrate && latestPin.pinAt < latestVibrate.vibrateAt) || (latestTheft && latestPin.pinAt < latestTheft.happenedAt))) {
+      latestData = latestVibrate && latestVibrate.vibrateAt > (latestTheft ? latestTheft.happenedAt : 0) 
+        ? { ...latestVibrate.toObject(), collection: 'MinorAlert' } 
+        : latestTheft 
+          ? { ...latestTheft.toObject(), collection: 'Theft' }
+          : null;
+    } else if (latestVibrate && (!latestTheft || latestVibrate.vibrateAt > latestTheft.happenedAt)) {
+      latestData = { ...latestVibrate.toObject(), collection: 'MinorAlert' };
+    } else if (latestTheft) {
+      latestData = { ...latestTheft.toObject(), collection: 'Theft' };
+    }
+
+    if (!latestData) {
+      return res.status(400).json({ message: latestPin });
+    }
+
+    res.status(200).json({ data: [latestData] });
+  } catch (error) {
+    return res.status(500).json({ message: 'Internal server error' });
+  }
 };
-
-
 
 //get the latest map notification
 exports.mapnotification = async (req, res, next) => {
