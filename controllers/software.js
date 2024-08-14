@@ -584,7 +584,7 @@ exports.mapnotification = async (req, res, next) => {
     const uniqueId = userexist.uniqueId;
 
     const latestVibrate = await MinorAlert.findOne({ uniqueId }).sort({ vibrateAt: -1 });
-    const latestTheft = await TheftAlert.findOne({ uniqueId }).sort({ happenedAt: -1 });
+    const latestTheft = await Theft.findOne({ uniqueId }).sort({ happenedAt: -1 });
     const latestPin = await Pinlocation.findOne({ uniqueId, statusPin: true }).sort({ pinAt: -1 });
 
     let latestData = null;
