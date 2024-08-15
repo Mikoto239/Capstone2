@@ -397,34 +397,38 @@ exports.send_theftalert = async (req, res, next) => {
 
 
 
-exports.deleteuser = async (req, res, next) =>{
-  const {token} = req.body;
-  
-  try{
+exports.deleteuser = async (req, res, next) => {
+  const { token } = req.body;
+
+  try {
     const decoded = jwt.verify(token, SECRET_KEY);
 
     if (!decoded || !decoded.id) {
-      return res.status(401).json({ message: 'Unauthorized Access!' });
+      return res.status(401).json({ message: 'Unauthorized Access! Invalid token.' });
     }
 
-    const decodedId = decoded.id; 
+    const decodedId = decoded.id;
+    const user = await User.findById(decodedId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
 
-    const deleteduser= await User.findByIdAndDelete(decodedId);
-    if(deleteduser){
-      return res.status(200).json({message:"successfully deleted!"});
-     }
-     else{
-      return res.status(400).json({message:"Unable to delete!"});
-     }
-  }
-  catch (error) {
-    console.error(error);
+    const uniqueId = user.uniqueId;
+    const deletedUser = await User.findByIdAndDelete(decodedId);
+    if (!deletedUser) {
+      return res.status(400).json({ message: "Unable to delete user. User not found." });
+    }
+
+    await Pinlocation.deleteMany({ uniqueId });
+     await MinorAlert.deleteMany({ uniqueId });
+      await Theft.deleteMany({ uniqueId });
+
+    return res.status(200).json({ message: "User and associated data successfully deleted!" });
+  } catch (error) {
+    console.error('Error during user deletion:', error.message);
     return res.status(500).json({ message: 'Internal server error' });
   }
- 
 };
-
-
 
 
 
