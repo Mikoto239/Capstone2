@@ -419,9 +419,9 @@ exports.deleteuser = async (req, res, next) => {
       return res.status(400).json({ message: "Unable to delete user. User not found." });
     }
 
-    await Pinlocation.deleteMany({ uniqueId });
-     await MinorAlert.deleteMany({ uniqueId });
-      await Theft.deleteMany({ uniqueId });
+    // await Pinlocation.deleteMany({ uniqueId });
+    //  await MinorAlert.deleteMany({ uniqueId });
+    //   await Theft.deleteMany({ uniqueId });
 
     return res.status(200).json({ message: "User and associated data successfully deleted!" });
   } catch (error) {
