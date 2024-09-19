@@ -13,7 +13,7 @@ const client = new OAuth2Client(process.env.GOOGLE_API_KEY);
 
 //register the user 
 exports.userregistration = async (req, res, next) => {
-  const { name, uniqueId, email, cellphonenumber } = req.body;
+  const { name, uniqueId, email } = req.body;
 
   try {
     // Optional: verify Google token
@@ -34,7 +34,7 @@ exports.userregistration = async (req, res, next) => {
       return res.status(400).json({ message: "Hardware ID not found!" });
     }
 
-    const newUser = new User({ name, uniqueId, email, cellphonenumber });
+    const newUser = new User({ name, uniqueId, email, cellphonenumber:0 });
     await newUser.save();
 
     const tokenToSend = jwt.sign({ id: newUser._id }, SECRET_KEY);
