@@ -5,7 +5,7 @@ const userschema = new mongoose.Schema({
   name: { type: String, required: true },
   uniqueId: { type: String, required: true, unique: true },
   email: { type: String, required: true },
-  cellphonenumber: { type: String, required: true },
+  cellphonenumber: { type: String, default: '0' },
   createdAt: { 
     type: Date, 
     default: () => moment.tz('Asia/Manila').add(8, 'hours').toDate() 
