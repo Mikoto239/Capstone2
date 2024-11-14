@@ -29,6 +29,11 @@ exports.userregistration = async (req, res, next) => {
       return res.status(400).json({ message: "User is already registered!" });
     }
 
+     const uniqueIdUse = await User.findOne({ uniqueId});
+    if (uniqueIdUse) {
+      return res.status(400).json({ message: "Unique ID is already used by another User!" });
+    }
+
     const hardwareId = await Hardware.findOne({ uniqueId });
     if (!hardwareId) {
       return res.status(400).json({ message: "Hardware ID not found!" });
